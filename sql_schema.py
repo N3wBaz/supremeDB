@@ -339,8 +339,56 @@ CREATE TABLE open_demand (
 )
 """
 
+
 sql_schema_query_6 = """
+DROP TABLE IF EXISTS ostatki;
+
+CREATE TABLE ostatki (
+    "Наименование склада" VARCHAR(255),
+    "Номенкл.№" FLOAT,
+    "Наименование материала" VARCHAR(255),
+    "СКЛАД" VARCHAR(255),
+    "№ плавки" VARCHAR(255),
+    "НОМЕР СЛЯБА ПОСТАВЩИКА" VARCHAR(255),
+    "ID № продукта" VARCHAR(255),
+    "Марка стали" VARCHAR(255),
+    "ВНУТРЕННЯЯ МАРКА СТАЛИ" VARCHAR(255),
+    "Толщина" FLOAT,
+    "Ширина" FLOAT,
+    "Длина фактическая" FLOAT,
+    "ID краткий" FLOAT,
+    "ОстКонПериода" FLOAT,
+    "ГОДНОСТЬ" VARCHAR(255),
+    "Спецификация исходная" VARCHAR(255),
+    "Спецификация текущая" VARCHAR(255),
+    "№ позиции" FLOAT,
+    "Труба" VARCHAR(255),
+    "Прогноз вовлечения" VARCHAR(255),
+    "Будущий остаток" FLOAT,
+    "Будущая спецификация" VARCHAR(255),
+    "ДатаВзЗап" DATE,
+    "НомерЗаказаПоставщика" VARCHAR(255),
+    "Номер спец-ии на сляб в SAP" FLOAT,
+    "Статус плавки" VARCHAR(255),
+    "№ заявки на заказ металла" VARCHAR(255),
+    "Заказ на трубу" VARCHAR(255),
+    "Покупатель" VARCHAR(255),
+    "Объем вовлечения" FLOAT,
+    "Спецификация_труба" VARCHAR(255),
+    "Сегмент" VARCHAR(255),
+    "Потребитель/проект" VARCHAR(255),
+    "Заявка_Труба" VARCHAR(255),
+    "АЗ 2023.Покупатель" VARCHAR(255),
+    "ПОСТАВЩИК" VARCHAR(255),
+    "Исходный заказчик сляба" VARCHAR(255)
+)
+"""
+
+
+
+sql_schema_query_7 = """
 DROP TABLE IF EXISTS rolling_report;
+
 CREATE TABLE rolling_report (
     "Клиентский заказ" BIGINT,
     "Номер плавки" BIGINT,
@@ -378,3 +426,6 @@ CREATE TABLE rolling_report (
     "Расположение на УЗО Колонка" FLOAT,
     "Расположение на УЗО Позиция" FLOAT
 );"""
+
+
+

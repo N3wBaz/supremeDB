@@ -1,52 +1,64 @@
-from math import e
+from math import e, log
 from bleach import clean
 import pandas as pd
 from db_script import get_df_from_query
 from db_script import send_sql_query
 import psycopg2
 from config import DB_ARGS, DATA_PARAMS1
-from sql_schema import sql_schema_query_1, sql_schema_query_2, sql_schema_query_3, sql_schema_query_4, sql_schema_query_5
+from sql_schema import * 
 from sqlalchemy import create_engine
 import os
 import time
+import logging
 
+
+logging_path = os.path.join("C:/для работы/база/эксперименты/supremeDB", "logs", "data.log")
+logging.basicConfig(filename=logging_path,level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', encoding='utf-8')
 
 def reading(file_name, path="./", skiprows=0):
+
+    print("         Чтение")
     
     file_path = os.path.join(path, "source", file_name)
-    # print(file_path)
-    # df = pd.read_excel('./source\Открытая потребность.xlsx')
 
+    logging.info(f"Attempting to read file: {file_path}")
     try:        
         df = pd.read_excel(file_path, skiprows=skiprows)
+        logging.info(f"Successfully read file: {file_path}")
     except:
-        print('шляпа')
+        print('     шляпа')
+        logging.error(f"Failed to read file: {file_path}. Error: {e}")
         df = None
-    # print(df.columns)
     return df
 
 def clean_and_convert(df, params):
-
-    for param in params:
-        if param == 'numeric':
-            for col in params[param]:
-                if df[col].dtype == object:
-                    df[col] = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-                # print(col, df[col].dtype, df[col].unique().max())
-                df[col].fillna(0, inplace=True)
-        if param == 'objects':
-            for col in params[param]:
-                df[col] = df[col].str.strip()
-        if param == 'date':
-            for col in params[param]:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
-                df[col] = df[col].replace({'NaT': None})
-                    # df[col].fillna('-1', inplace=True)
-
+    logging.info("Starting data cleaning and conversion")
+    try:
+        for param in params:
+            try:
+                logging.info(f"Processing category: {param}")
+                if param == 'numeric':
+                    for col in params[param]:
+                        if df[col].dtype == object:
+                            df[col] = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                        df[col].fillna(0, inplace=True)
+                elif param == 'objects':
+                    for col in params[param]:
+                        df[col] = df[col].str.strip()
+                elif param == 'date':
+                    for col in params[param]:
+                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                        df[col] = df[col].replace({'NaT': None})
+            except Exception as e:
+                logging.error(f"Error cleaning category {param}: {e}")
+    except Exception as e:
+        logging.error(f"Failed to clean file: {e}")
     return df
 
 def drop_function(df, number):
+    logging.info("Starting column drop process")
+    print("         Удаление не нужных столбцов")
     columns_dict = {
         1   :   {
             'name'   :   [],
@@ -54,7 +66,6 @@ def drop_function(df, number):
                 # 'column': [],
                 # 'row'   : []
                 # },
-            # 'axis'   :   'column'
             },
         2   :   {
             'name'   :   ["№ п/п", "№ заявки от ОМК", "Тн. по заявке", "Месяц прозв-ва", "Марка стали", "Марка стали.1", "tС", "Диаметр", "Толщина", "Линия произ-ва", "Требования",           
@@ -66,7 +77,6 @@ def drop_function(df, number):
                 'column': ['№ п/п'],
                 'row'   : []
                 },
-            # 'axis'   :   'column'
         },
         3   :   {
             'name'   :   ["delete", "Планируемый период поставки слябов", "Поставщик", "Дата получения 'Заявки на заказ металла' от ОАО 'ОМК-Сталь'", "№ Заявки на заказ металла от ОАО 'ОМК-Сталь'", 
@@ -76,7 +86,6 @@ def drop_function(df, number):
                 'column': ['delete'],
                 'row'   : ['Планируемый период поставки слябов']
                 },
-            # 'axis'   :   'row',
         },
         4   :   {
             'name'   :   [],
@@ -114,75 +123,62 @@ def drop_function(df, number):
                         "Номер позиции прогноза","Проект","Срок жизни запроса","Дата действия ответа на запрос","Дата закрытия УПЗ","Дата создания позиции в ERP системе","Дата создания записи",
                         "Список заказов MM к позиции заказа","Список заказов ZUB к позиции заказа","Список заявок на металл к позиции заказа" ],
             'to_drop':   {},
-        }
+        },
+        6   :   {
+            'name'   :   [],
+            'to_drop':   {
+                'column': 'Unnamed',
+                'row'   : []
+                },
+        },
+        7   :   {
+            'name'   :   ["№ п/п", "Клиентский заказ", "Номер плавки", "ID Сляба поставщика", "ID материала", "Внешняя марка стали СХ", "Посад в печь Дата", "Посад в печь Смена", 
+                          "Посад в печь Время", "Парам сляба при посаде в печь Толщина, мм", "Парам сляба при посаде в печь Ширина, мм", "Парам сляба при посаде в печь Длина, мм", 
+                          "Парам сляба при посаде в печь Внешняя марка стали СХ", "Парам сляба при посаде в печь Внутренняя марка стали", "Парам сляба при посаде в печь Вес, тн", 
+                          "Парам сляба при посаде в печь Вес теор., тн", "Вид продукции Вид продукции", "Прокатка Дата", "Прокатка Смена", "Прокатка Время начала", "Прокатка Время окончания", 
+                          "Ном парам МЛ (полураската) Толщина, мм", "Ном парам МЛ (полураската) Ширина, мм", "Ном парам МЛ (полураската) Длина, мм", "Ном парам МЛ (полураската) Вес, тн", 
+                          "Ном парам МЛ (полураската) Ном. марка стали", "Ном парам МЛ (полураската) Ном. SAP ID", "Факт парам МЛ (полураската) Толщина, мм", 
+                          "Факт парам МЛ (полураската) Ширина, мм", "Факт парам МЛ (полураската) Длина, мм", "Факт парам МЛ (полураската) Вес, тн", "Сэкв", "Pcm", "Расположение на УЗО Ряд", 
+                          "Расположение на УЗО Колонка", "Расположение на УЗО Позиция"],
+            'to_drop':   {
+                'column': ['№ п/п'],
+                'row'   : []
+                },
+        },
     }
 
     # print(list(df.columns))
     # print(df)
-    if columns_dict[number]['name']:
-        df.columns = columns_dict[number]['name']
-    if columns_dict[number]['to_drop']:        
-        if columns_dict[number]['to_drop']['column']:
-            try:
-                df.drop(columns=columns_dict[number]['to_drop']['column'], inplace=True)
-            except:
-                pass
-        if columns_dict[number]['to_drop']['row']:
-            month = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август',
-            'сентябрь', 'октябрь', 'ноябрь', 'декабрь']
-            df.drop(df[~df[columns_dict[number]['to_drop']['row'][0]].isin(month)].index, inplace=True)
+    try:
+        logging.info("Renaming columns if necessary")
+        if columns_dict[number]['name']:
+            df.columns = columns_dict[number]['name']
+    except Exception as e:
+        logging.error(f"Failed to rename columns: {e}")
 
+    if columns_dict[number]['to_drop']:
+        if columns_dict[number]['to_drop']['column']:
+            col = columns_dict[number]['to_drop']['column']
+            try:
+                if isinstance(col, list):
+                    df.drop(columns=col, inplace=True)
+                elif col == 'Unnamed':
+                    for_drop = [i for i in df.columns if 'Unnamed' in i]
+                    df.drop(columns=for_drop, inplace=True)
+            except Exception as e:
+                logging.error(f"Failed to drop columns: {e}")
+
+        if columns_dict[number]['to_drop']['row']:
+            try:
+                month = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь']
+                df.drop(df[~df[columns_dict[number]['to_drop']['row'][0]].isin(month)].index, inplace=True)
+            except Exception as e:
+                logging.error(f"Failed to drop rows: {e}")
 
     return df
-            # if df[col].dtype == object:
-            #     df[col] = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
-            # df[col] = pd.to_numeric(df[col], errors='coerce')
-            # df[col].fillna(0, inplace=True)
 
 
-
-
-
-        # print(len(params[param]))
-    # print(params)
-    # if params == {}:
-    #     convert_int = []
-    #     convert_float = []
-    #     objects = []
-    #     numeric = []
-    #     other = []
-    # else:
-    #     convert_int = params['convert_int']
-    #     convert_float = params['convert_float']
-    #     objects = params['objects']
-    #     numeric = params['numeric']
-    #     other = params['other']
-        # print(objects)
-    
-    # for col in convert_int:
-    #     df[col] = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
-    #     df[col] = pd.to_numeric(df[col], errors='coerce')
-    #     df[col].fillna(-1, inplace=True)
-    #     df[col] = df[convert_int[0]].astype(int)
-
-    # for col in convert_float:
-    #     df[col] = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
-    #     df[col] = pd.to_numeric(df[col], errors='coerce', downcast="float")
-    #     # df[col].fillna(-1, inplace=True)
-    #     # df[col] = df[convert_int[0]].astype(float)
-
-    # for col in objects:
-    #     df[col] = df[col].str.strip()
-    #     df[col].fillna('-1', inplace=True)
-
-    # for col in numeric:
-    #     df[col] = df[col].astype(str)
-    #     df[col] = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
-    #     df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    
-
-def read_convert_file(current_dir="./", filename=None):
+# def read_convert_file(current_dir="./", filename=None):
 
 
     # Принудительно преобразовывать все данные через pd.to_numeric(df[col], errors='coerce')
@@ -268,132 +264,49 @@ def read_convert_file(current_dir="./", filename=None):
     #     "other"         :   ['ДатаВзЗап']
     # }  
 
-    df = reading()
-    # new_df =clean_and_convert(df, **params)
-    return df
+    # df = reading()
+    # # new_df =clean_and_convert(df, **params)
+    # return df
 
 
 # print(read_convert_file().head(3))
-query = [sql_schema_query_1, sql_schema_query_2, sql_schema_query_3, sql_schema_query_4, sql_schema_query_5]
+query = [sql_schema_query_1, sql_schema_query_2, sql_schema_query_3, sql_schema_query_4, sql_schema_query_5, sql_schema_query_6, sql_schema_query_7]
 if __name__ == "__main__":
-    # df1 = read_convert_file()
-    # print(reading().head(5))
-    # reading()
-    # df = pd.read_excel('./source\Открытая потребность.xlsx')
-
+    logging.info("Starting main process")
     start = time.time()
     # current_dir = "./"
     current_dir = "C:/для работы/база/эксперименты/supremeDB"
     for i in DATA_PARAMS1:
-        if i > 5:
-            break
+
         file_name = DATA_PARAMS1[i]["file_name"]
         skiprows = DATA_PARAMS1[i]["skiprows"]
         data_type = DATA_PARAMS1[i]["data_type"]
         table_name = DATA_PARAMS1[i]["table_name"]
 
+        print("В работе: ", file_name)
+
+        logging.info(f"Processing file: {file_name}")
         df = reading(file_name, current_dir, skiprows)
-    #     print(skiprows)
-        df = drop_function(df, i) 
-        df = clean_and_convert(df, data_type)
-        # if i == 5:
-        #     for j in list(df.columns):
-        #         print(j)
-        print(file_name)
+        if df is not None:
+            df = drop_function(df, i)
+            df = clean_and_convert(df, data_type)
 
-        # print(df.head(3))
-        # print(df['Планируемый период поставки слябов'])
-        # if i == 2:
-        #     # print(df.columns)
-        #   print(df[DATA_PARAMS1[i]["data_type"]['date']].head(6))
-        # print(df.shape)
-        # drop_function(df, i)
-        # print(df.shape)
+            sql_schema_query = query[i-1]
+            send_sql_query(sql_schema_query, DB_ARGS)
+
+            engine = create_engine("postgresql+psycopg2://postgres:1@localhost:5432/slab")
+            logging.info(f"Uploading data {file_name} to table: {table_name}")
+            df.to_sql(table_name, con=engine, if_exists='append', index=False)
+        else:
+            logging.error(f"Skipping file due to read error: {file_name}")
+
+    logging.info("Main process completed")
 
 
-
-
-        sql_schema_query = query[i-1]
-        send_sql_query(sql_schema_query, DB_ARGS)
-
-        engine = create_engine("postgresql+psycopg2://postgres:1@localhost:5432/slab")
-        
-        df.to_sql(table_name, con=engine, if_exists='append', index=False)
-
-
-        # print(df.info())
-        # sql_schema_query_1
-        # print(df.info())
-        # for col in df[DATA_PARAMS1[i]["data_type"]['numeric']]:
-        #     if df[col].dtype == object:
-        #         df[col] = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
-        #     df[col] = pd.to_numeric(df[col], errors='coerce')
-        #     df[col].fillna(0, inplace=True)
-            # df[col] = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
-        # print(df[DATA_PARAMS1[i]["data_type"]['numeric']]) = df[col].str.strip().str.replace(',', '.').str.replace(' ', '')
-
-        # print(df.shape)
-        # df_{i}
     end = time.time()
 
-    print(end - start)
-    # print(df.info())
-    # file_name = "Остатки сляба с резервами.xlsm"
-    # name = "Остатки сляба с резервами.xlsm"
-    # file_path = os.path.join(current_dir, "source", file_name)
+    print("Общее время :  ", end - start)
 
-    # df1 = pd.read_excel(file_path)
-    
-    # print(reading(name, './exam'))
 
     # TODO: сделать функцию логирования
     # TODO: написать отдельные файлы для каждого файла, или несколько файлов объединить в один
-
-""" Пример логирования.
-import os
-import pandas as pd
-import logging
-from db_script import send_sql_query
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-def reading(file_name, path="./"):
-    file_path = os.path.join(path, "source", file_name)
-    logging.info(f"Attempting to read file: {file_path}")
-    try:
-        df = pd.read_excel(file_path)
-        logging.info(f"Successfully read file: {file_path}")
-    except Exception as e:
-        logging.error(f"Failed to read file: {file_path}. Error: {e}")
-        df = None
-    return df
-
-def clean_data(df):
-    logging.info("Starting data cleaning process")
-    try:
-        # Example cleaning operation
-        df.dropna(inplace=True)
-        logging.info("Data cleaning completed successfully")
-    except Exception as e:
-        logging.error(f"Data cleaning failed. Error: {e}")
-        df = None
-    return df
-
-def write_to_db(df, table_name):
-    logging.info(f"Attempting to write data to database table: {table_name}")
-    try:
-        # Example SQL query
-        send_sql_query(f"INSERT INTO {table_name} VALUES ...")  # Replace with actual query
-        logging.info(f"Data successfully written to table: {table_name}")
-    except Exception as e:
-        logging.error(f"Failed to write data to table: {table_name}. Error: {e}")
-
-# Example usage
-if __name__ == "__main__":
-    df = reading("example.xlsx")
-    if df is not None:
-        df = clean_data(df)
-        if df is not None:
-            write_to_db(df, "example_table")
-"""
